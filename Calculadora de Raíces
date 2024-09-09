@@ -1,0 +1,73 @@
+; Programa para calcular la raíz cuadrada entera de un número BCD (en el rango 0-99)
+; Registro de entrada:
+;   B: número en BCD (de 00 a 99)
+; Registro de salida:
+;   C: raíz cuadrada entera en BCD
+
+        org 000h          ; Inicio del programa
+
+
+START:  ld a, b           ; Cargar el valor de B (número BCD) en A
+        call BCD_TO_BIN   ; Convertir BCD a binario
+        ld b, a           ; Guardar el valor binario en B
+        xor a             ; Limpiar A (A = 0)
+        ld c, a           ; Inicializar C (resultado) en 0
+        ld d, 1           ; Inicializar D en 1 (para probar los cuadrados)
+
+LOOP:   ld a, d           ; Cargar D en A
+        call SQUARE       ; Calcular el cuadrado de D (A = D^2)
+        cp b              ; Comparar con el valor de B (número binario)
+        jr c, DONE        ; Si D^2 > B, termina el ciclo
+        inc c             ; Incrementar el valor de C (raíz cuadrada aproximada)
+        inc d             ; Incrementar D
+        jr LOOP           ; Repetir el ciclo
+
+DONE:   call BIN_TO_BCD   ; Convertir el valor binario en C a BCD
+        ld c, a           ; Guardar el valor BCD de la raíz cuadrada en C
+        ret               ; Termina el programa
+
+; Subrutina para convertir un número BCD a binario
+BCD_TO_BIN:
+        ld a, b           ; Cargar el número BCD en A
+        ld e, a           ; Guardar el valor original en E
+        and 0Fh           ; Obtener las unidades (parte baja del BCD)
+        ld d, a           ; Guardar las unidades en D
+        ld a, e           ; Restaurar el valor original en A
+        srl a             ; Desplazar el nibble superior (decenas) a la parte baja
+        srl a
+        srl a
+        srl a
+        ld e, a           ; Guardar las decenas en E
+        ld a, e           ; Comenzar la multiplicación por 10
+        add a, a          ; A = E * 2
+        add a, a          ; A = E * 4
+        add a, a          ; A = E * 8
+        add a, e          ; A = E * 8 + E = E * 9
+        add a, d          ; Sumar las unidades a A
+        ret               ; Devuelve el valor binario en A
+
+; Subrutina para convertir un número binario a BCD
+BIN_TO_BCD:
+        ld e, a           ; Guardar el valor binario en E
+        ld d, 10          ; Cargar 10 en D
+        xor a             ; A = 0
+DIV_LOOP:
+        sub d             ; Restar 10 de A
+        jr c, CONVERT     ; Si el resultado es negativo, continuar con la conversión
+        inc a             ; Incrementar el número de decenas en A
+        jr DIV_LOOP       ; Repetir el ciclo
+
+CONVERT:
+        add a, e          ; Sumar las unidades restantes en A
+        ret               ; Devuelve el valor BCD en A
+
+; Subrutina para calcular el cuadrado de un número
+SQUARE:
+        ld e, a           ; Guardar el valor de A (D) en E
+        ld a, 0           ; Inicializar A en 0 para almacenar el resultado
+        ld l, e           ; Cargar el valor de E en L para el ciclo
+MUL_LOOP:
+        add a, e          ; Sumar E a A
+        dec l             ; Decrementar L
+        jr nz, MUL_LOOP   ; Repetir hasta que L sea 0 (A = E * E)
+        ret               ; Devuelve el cuadrado en A
