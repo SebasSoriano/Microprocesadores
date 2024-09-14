@@ -1,38 +1,66 @@
+; Programa para calcular la raíz cuadrada entera de un número en BCD (0-99)
+; Registro de entrada:
+;   A: número en BCD (00-99)
+; Registro de salida:
+;   A: raíz cuadrada entera en BCD
+
         org 0000h          ; Inicio del programa
 
-INICIO: ld a, 25           ; Cargar el número decimal (0-99) en el registro A
-        ld e, a            ; Guardar el valor original de A en E
-        call SQR           ; Llamar a la subrutina SQR para calcular la raíz cuadrada
-        ; Ahora el registro C contiene la raíz cuadrada entera de 99
-        ; En este caso, debería ser 9 (en decimal)
+INICIO: ld a, 49h          ; Cargar el número en BCD (ejemplo: 49)
 
-        halt               ; Detener el programa
+; Conversión de BCD a binario
+        ld e, a            ; Guardar el valor original de A (número en BCD) en E
+        and 0Fh            ; Obtener las unidades (parte baja del BCD)
+        ld d, a            ; Guardar las unidades en D
+        ld a, e            ; Restaurar el valor original en A
+        srl a              ; Desplazar el nibble superior (decenas) a la parte baja
+        srl a
+        srl a
+        srl a
+        ld e, a            ; Guardar las decenas en E
+        ld a, e            ; Comenzar la multiplicación por 10
+        add a, a           ; A = E * 2
+        add a, a           ; A = E * 4
+        add a, a           ; A = E * 8
+        add a, e           ; A = E * 9
+        add a, d           ; Sumar las unidades a A (ahora A contiene el valor binario)
 
-; Subrutina SQR: Calcula la raíz cuadrada entera de un número en E (valor original)
-SQR:    ld b, 0            ; Inicializar B = 0 (resultado de la raíz cuadrada)
-        ld c, 1            ; Cargar C = 1 (contador para el cálculo de cuadrados)
+; Calcular la raíz cuadrada en binario (resultado en A)
+        ld b, 0            ; Inicializar B = 0 (resultado de la raíz cuadrada)
+        ld c, 1            ; Inicializar C = 1 (contador para probar los cuadrados)
 
-LOOP:   ld a, c            ; Cargar C en A para calcular C^2
+CALCULO:
         ld d, c            ; Cargar C en D (para el ciclo de multiplicación)
-        xor a              ; A = 0, limpiar A para el cálculo del cuadrado
+        ld a, 0            ; Limpiar A para hacer el cálculo del cuadrado
+        ld e, d            ; Guardar D en E (para la multiplicación)
 
-MULT:   add a, d           ; A = A + D (sumar D repetidamente para hacer D^2)
-        dec c              ; Decrementar C (número de veces que sumamos D)
-        jr nz, MULT        ; Repetir hasta que C sea 0 (terminar la multiplicación)
+MULT:
+        add a, d           ; A = A + D (sumar D repetidamente para hacer D^2)
+        dec e              ; Decrementar E
+        jr nz, MULT        ; Repetir hasta que E sea 0 (A = D^2)
 
-        ld c, d            ; Restaurar el valor de C para el siguiente bucle
-        ld a, e            ; Restaurar el valor original del número en A
-        cp d               ; Comparar el cuadrado (D^2) con el número original
-        jr c, LESS         ; Si A < D^2, continuar
-        jr z, DONE         ; Si A == D^2, hemos encontrado la raíz exacta
-        jr OVER            ; Si A > D^2, terminar con la raíz anterior
+        ld e, a            ; Guardar el cuadrado en E
+        ld a, 49h          ; Restaurar el valor original (número en BCD)
+        cp e               ; Comparar el cuadrado con el número original
+        jr c, TERMINAR     ; Si el cuadrado es mayor, termina
+        inc b              ; Incrementar B (la raíz cuadrada aproximada)
+        inc c              ; Incrementar C para probar el siguiente cuadrado
+        jr CALCULO         ; Repetir el ciclo
 
-LESS:   inc b              ; Incrementar B (raíz cuadrada aproximada)
-        inc c              ; Incrementar C (próximo valor a probar)
-        jr LOOP            ; Repetir el bucle para probar el siguiente cuadrado
+TERMINAR:
+        ld a, b            ; Colocar el resultado final (la raíz cuadrada) en A
 
-OVER:   dec b              ; Retroceder un valor para obtener la raíz entera correcta
+; Conversión de binario a BCD
+        ld e, a            ; Guardar el valor binario en E
+        xor a              ; A = 0
+        ld d, 10           ; Cargar 10 en D para dividir
 
-DONE:   ld c, b            ; Colocar el resultado final (la raíz cuadrada) en C
-        ret                ; Terminar y devolver el resultado en C
+DIVISION:
+        sub d              ; Restar 10 de A
+        jr c, FIN_DIV      ; Si el resultado es negativo, continuar con el BCD
+        inc a              ; Incrementar el número de decenas
+        jr DIVISION        ; Repetir hasta que no podamos restar más
 
+FIN_DIV:
+        add a, e           ; Sumar las unidades restantes en A
+        halt               ; Detener el programa
