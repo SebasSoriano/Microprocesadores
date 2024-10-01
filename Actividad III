@@ -1,0 +1,192 @@
+.ORG 8000h         ; Comenzamos el programa en 8000h
+
+; ------------------------------------------------
+; Rutina para mostrar un mensaje en la pantalla
+; ------------------------------------------------
+PRINT_STRING:
+    LD A, (HL)          ; Cargar el carácter en A
+    OR A                ; ¿Es nulo (fin de cadena)?
+    RET Z               ; Si es nulo, regresar
+    CALL PRINT_CHAR     ; Imprimir el carácter
+    INC HL              ; Siguiente carácter
+    JR PRINT_STRING     ; Repetir hasta fin de cadena
+
+; ------------------------------------------------
+; Generador de números pseudoaleatorios usando un LFSR
+; ------------------------------------------------
+RAND:
+    LD A, (SEED)        ; Cargar la semilla actual
+    LD B, A             ; Copiar la semilla en B
+    SRL A               ; Desplazar a la derecha
+    RR B                ; Rotar el bit a la izquierda
+    XOR B               ; XOR con la semilla original
+    LD (SEED), A        ; Actualizar la semilla
+    LD L, A             ; Retornar el número generado en L
+    RET
+
+; ------------------------------------------------
+; Mostrar el menú inicial
+; ------------------------------------------------
+START_MENU:
+    LD HL, START_MSG    ; Cargar el mensaje de inicio
+    CALL PRINT_STRING   ; Mostrar el mensaje
+    CALL GENERATE_NUMBERS ; Generar los 20 números
+    CALL DISPLAY_NUMBERS  ; Mostrar los números en pantalla
+    CALL SORT_MENU      ; Preguntar cómo ordenar
+    CALL DISPLAY_SORTED_NUMBERS ; Mostrar números ordenados
+    CALL REPEAT_MENU    ; Preguntar si desea repetir
+    RET
+
+; ------------------------------------------------
+; Generar 20 números pseudoaleatorios
+; ------------------------------------------------
+GENERATE_NUMBERS:
+    LD HL, NUMBERS      ; Apuntar al área de memoria NUMBERS usando HL
+    LD B, 20            ; Contador para 20 números
+GEN_LOOP:
+    CALL RAND           ; Generar un número aleatorio en L
+
+    ; -----------------------------------------------------
+    ; DEPURACIÓN: Verificar contenido de HL y L
+    ; -----------------------------------------------------
+    ; Mostrar valor del registro HL (dirección de memoria)
+    PUSH HL             ; Guardar HL temporalmente en la pila
+    LD A, H             ; Cargar el valor alto de HL en A
+    CALL PRINT_DECIMAL  ; Mostrar parte alta de HL
+    LD A, L             ; Cargar el valor bajo de HL en A
+    CALL PRINT_DECIMAL  ; Mostrar parte baja de HL
+    POP HL              ; Restaurar el valor de HL
+
+    ; Mostrar valor del registro L (número generado)
+    LD A, L             ; Cargar el número generado en A
+    CALL PRINT_DECIMAL  ; Mostrar el número generado
+
+    ; -----------------------------------------------------
+    ; Escribir el número generado en la memoria
+    ; -----------------------------------------------------
+    LD (HL), L          ; Guardar el número generado en la dirección apuntada por HL
+
+    INC HL              ; Apuntar al siguiente espacio de memoria
+    DJNZ GEN_LOOP       ; Repetir 20 veces
+    RET
+
+; ------------------------------------------------
+; Mostrar los números generados en pantalla
+; ------------------------------------------------
+DISPLAY_NUMBERS:
+    LD HL, NUMBERS      ; Apuntar a los números generados
+    LD B, 20            ; Mostrar 20 números
+DISP_LOOP:
+    LD A, (HL)          ; Cargar un número
+    CALL PRINT_DECIMAL  ; Mostrar el número en decimal
+    INC HL              ; Siguiente número
+    DJNZ DISP_LOOP      ; Repetir 20 veces
+    RET
+
+; ------------------------------------------------
+; Preguntar cómo se desea ordenar los números
+; ------------------------------------------------
+SORT_MENU:
+    LD HL, SORT_MSG     ; Mensaje para preguntar cómo ordenar
+    CALL PRINT_STRING   ; Mostrar mensaje
+    ; Aquí puedes implementar una rutina para recibir entrada del usuario
+    ; y seleccionar si el orden es ascendente o descendente.
+    ; Dependiendo de la selección, llama a la rutina SORT_ASC o SORT_DESC.
+    RET
+
+; ------------------------------------------------
+; Ordenar los números en forma ascendente
+; ------------------------------------------------
+SORT_ASC:
+    LD HL, NUMBERS      ; Apuntar a los números
+    LD DE, SORTED_NUMBERS ; Área de memoria ordenada
+    ; Implementar un algoritmo de ordenamiento como burbuja
+    RET
+
+; ------------------------------------------------
+; Ordenar los números en forma descendente
+; ------------------------------------------------
+SORT_DESC:
+    LD HL, NUMBERS      ; Apuntar a los números
+    LD DE, SORTED_NUMBERS ; Área de memoria ordenada
+    ; Implementar el algoritmo de ordenamiento inverso
+    RET
+
+; ------------------------------------------------
+; Mostrar los números ya ordenados
+; ------------------------------------------------
+DISPLAY_SORTED_NUMBERS:
+    LD HL, SORTED_NUMBERS ; Apuntar a los números ordenados
+    LD B, 20              ; Mostrar 20 números
+DISP_SORTED_LOOP:
+    LD A, (HL)            ; Cargar un número
+    CALL PRINT_DECIMAL    ; Mostrar en decimal
+    INC HL                ; Siguiente número
+    DJNZ DISP_SORTED_LOOP ; Repetir 20 veces
+    RET
+
+; ------------------------------------------------
+; Preguntar si se desea repetir o salir
+; ------------------------------------------------
+REPEAT_MENU:
+    LD HL, REPEAT_MSG     ; Mensaje para preguntar si se desea repetir
+    CALL PRINT_STRING     ; Mostrar mensaje
+    ; Aquí puedes implementar la lógica para recibir la entrada
+    ; Si elige repetir, salta al menú de inicio. Si no, salir del programa.
+    RET
+
+; ------------------------------------------------
+; Rutinas para mostrar números en decimal, caracteres, etc.
+; ------------------------------------------------
+PRINT_DECIMAL:
+    LD C, A              ; Guardar el número en A en C
+    LD B, 0              ; Inicializar el registro B en 0
+    
+    ; Dividir por 100 para obtener el primer dígito
+    LD D, 100
+DIV100:
+    CP D
+    JR C, NEXT_DIV10
+    SUB D
+    INC B
+    JR DIV100
+    
+NEXT_DIV10:
+    ADD A, 30h           ; Convertir el dígito a carácter ASCII
+    CALL PRINT_CHAR      ; Imprimir el dígito
+    LD A, C              ; Recuperar el valor original
+    SUB B                ; Resta los múltiplos de 100
+    LD B, 0              ; Inicializar de nuevo
+    
+    ; Dividir por 10 para obtener el segundo dígito
+    LD D, 10
+DIV10:
+    CP D
+    JR C, PRINT_ONES
+    SUB D
+    INC B
+    JR DIV10
+    
+PRINT_ONES:
+    ADD A, 30h           ; Convertir el dígito a carácter ASCII
+    CALL PRINT_CHAR      ; Imprimir el dígito
+    LD A, C              ; Recuperar el valor original
+    SUB B                ; Resta los múltiplos de 10
+    ADD A, 30h           ; Convertir el último dígito a carácter ASCII
+    CALL PRINT_CHAR      ; Imprimir el dígito final
+    RET
+
+PRINT_CHAR:
+    ; Implementar rutina para mostrar un carácter en la pantalla
+    RET
+
+; ------------------------------------------------
+; Datos y mensajes
+; ------------------------------------------------
+START_MSG:      .DB "Inicio...", 0
+SORT_MSG:       .DB "Asc o desc?", 0
+REPEAT_MSG:     .DB "Repetir? (S/N)", 0
+SEED:           .DB 0AAh  ; Semilla para el generador aleatorio
+NUMBERS:        .DS 20    ; Área para almacenar 20 números aleatorios
+SORTED_NUMBERS: .DS 20    ; Área para almacenar los números ordenados
+END:
